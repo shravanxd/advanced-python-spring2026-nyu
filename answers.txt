@@ -1,0 +1,191 @@
+Homework 1: Advanced Python for Data Science (Spring 2026)
+Course: DS-GA 1019
+Name: Shravan Khunti
+NetID: ssk10036
+Email: ssk10036@nyu.edu
+
+--------------------------------------------------------------------------------
+
+Problem 1. (30pt)
+
+Problem Statement:
+Write a function f(n) to calculate the number of ways of representing n as a sum of 1, 2, and 5, where the order of summands is important.
+
+Solution Approach:
+The problem can be modeled as a recurrence relation:
+f(n) = f(n-1) + f(n-2) + f(n-5)
+Base cases:
+f(n) = 0 for n < 0
+f(0) = 1
+
+Part 1: Recursive Solution
+A direct implementation of the recurrence relation.
+Timing Results:
+n=10: 0.000029 seconds
+n=25: 0.074646 seconds
+
+Part 2: Memoized Solution
+The recursive solution with a dictionary to cache results for previously computed values of n. This significantly reduces the time complexity from exponential to linear.
+Timing Results:
+n=10:  0.000007 seconds
+n=25:  0.000011 seconds
+n=50:  0.000021 seconds
+n=100: 0.000113 seconds
+
+Part 3: Iterative Solution
+A dynamic programming approach using an array (or list) to build the solution from the bottom up (f(0), f(1), ... f(n)).
+Timing Results:
+n=10:  0.000005 seconds
+n=25:  0.000005 seconds
+n=50:  0.000009 seconds
+n=100: 0.000019 seconds
+
+--------------------------------------------------------------------------------
+
+Problem 2. (70%)
+
+Problem Statement:
+Optimize an N-body simulation code (nbody.py) to run significantly faster (target: < 30 seconds).
+
+Optimization Strategy:
+I implemented four versions of the code, addressing specific areas of improvement as requested.
+
+1. nbody_1.py: Reduced function call overhead.
+   - I inlined the helper functions (compute_deltas, compute_b, compute_mag, update_vs, update_rs, compute_energy) directly into the main `advance` function.
+   - This removes the overhead of pushing/popping stack frames for millions of small function calls.
+
+2. nbody_2.py: Alternatives to membership testing.
+   - The original code used a list `seenit` and checked `if body2 in seenit` inside a nested loop, which is O(N) inside O(N^2), making it inefficient.
+   - I replaced this with an index-based double loop `for i in range(n): for j in range(i+1, n):`, which ensures each pair is visited exactly once without any list lookups.
+
+3. nbody_3.py: Using local variables.
+   - The original code accessed the global dictionary `BODIES` repeatedly inside the inner loops.
+   - In Python, accessing global variables is slower than accessing local variables. I created a local list `bodies = list(BODIES.values())` and passed it to the functions.
+   - This version proved to be the fastest optimization.
+
+4. nbody_4.py: Using data aggregation.
+   - I flattened the data structure into single lists for positions (r), velocities (v), and masses (m) to avoid the overhead of unpacking tuples.
+   - However, in pure Python, the overhead of list indexing and lack of vectorization (unlike NumPy) meant this approach was slightly slower than `nbody_3`.
+
+Final Optimization (nbody_opt.py):
+The final version incorporates the most effective optimizations:
+- It uses the local variable strategy from `nbody_3.py`.
+- It uses the optimized loop structure from `nbody_2.py`.
+- It keeps the code clean and readable while maximizing Python's interpreter efficiency.
+
+Speedup Analysis:
+Original Time (approx, 100 loops):  29.90 seconds
+Optimized Time (approx, 100 loops):  10.71 seconds
+Speedup Factor: 2.79x
+
+--------------------------------------------------------------------------------
+
+cProfile Logs (Problem 2)
+
+Below are the cumulative time profiles for each version of the nbody simulation.
+
+[nbody_1.py Profile Analysis]
+- Shows high number of function calls removed compared to original (implied), but still significant time in the advance loop.
+- Time reduction from original baseline.
+
+         36003706 function calls in 11.238 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   11.238   11.238 {built-in method builtins.exec}
+        1    0.000    0.000   11.238   11.238 nbody_1.py:1(<module>)
+        1    0.247    0.247   11.238   11.238 nbody_1.py:137(nbody)
+  2000000    9.184    0.000   10.990    0.000 nbody_1.py:44(advance)
+ 20002000    1.062    0.000    1.062    0.000 {method 'append' of 'list' objects}
+ 14001401    0.744    0.000    0.744    0.000 {method 'keys' of 'dict' objects}
+      200    0.001    0.000    0.001    0.000 nbody_1.py:92(report_energy)
+      100    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 nbody_1.py:120(offset_momentum)
+
+
+[nbody_2.py Profile Analysis]
+- Significant reduction in time due to optimized loop structure (removing `seenit` checks).
+
+         8000906 function calls in 7.039 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    7.039    7.039 {built-in method builtins.exec}
+        1    0.000    0.000    7.039    7.039 nbody_2.py:1(<module>)
+        1    0.260    0.260    7.039    7.039 nbody_2.py:126(nbody)
+  2000000    6.495    0.000    6.779    0.000 nbody_2.py:44(advance)
+  4000401    0.218    0.000    0.218    0.000 {method 'keys' of 'dict' objects}
+  2000200    0.065    0.000    0.065    0.000 {built-in method builtins.len}
+      200    0.000    0.000    0.000    0.000 nbody_2.py:82(report_energy)
+      100    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 nbody_2.py:109(offset_momentum)
+
+
+[nbody_3.py Profile Analysis]
+- Further reduction by using local variables (`bodies` list) instead of global dictionary lookups.
+- This was the fastest version.
+
+         4000507 function calls in 6.002 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    6.002    6.002 {built-in method builtins.exec}
+        1    0.000    0.000    6.002    6.002 nbody_3.py:1(<module>)
+        1    0.230    0.230    6.002    6.002 nbody_3.py:123(nbody)
+  2000000    5.709    0.000    5.772    0.000 nbody_3.py:44(advance)
+  2000200    0.063    0.000    0.063    0.000 {built-in method builtins.len}
+      200    0.000    0.000    0.000    0.000 nbody_3.py:80(report_energy)
+      100    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 nbody_3.py:106(offset_momentum)
+        1    0.000    0.000    0.000    0.000 {method 'keys' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {method 'values' of 'dict' objects}
+
+
+[nbody_4.py Profile Analysis]
+- Data aggregation (flattening lists). The overhead of list management in pure Python made this slower than `nbody_3`.
+
+         2000323 function calls in 6.331 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    6.331    6.331 {built-in method builtins.exec}
+        1    0.000    0.000    6.331    6.331 nbody_4.py:1(<module>)
+        1    0.201    0.201    6.331    6.331 nbody_4.py:116(nbody)
+  2000000    6.129    0.000    6.129    0.000 nbody_4.py:44(advance)
+      200    0.000    0.000    0.000    0.000 nbody_4.py:77(report_energy)
+      100    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 nbody_4.py:99(offset_momentum)
+       10    0.000    0.000    0.000    0.000 {method 'extend' of 'list' objects}
+        5    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
+        1    0.000    0.000    0.000    0.000 {built-in method builtins.len}
+        1    0.000    0.000    0.000    0.000 {method 'values' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {method 'keys' of 'dict' objects}
+
+
+[nbody_opt.py Profile Analysis]
+- Final optimized version (same logic as nbody_3.py).
+
+         4000507 function calls in 6.095 seconds
+
+   Ordered by: cumulative time
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    6.095    6.095 {built-in method builtins.exec}
+        1    0.000    0.000    6.095    6.095 nbody_opt.py:1(<module>)
+        1    0.233    0.233    6.095    6.095 nbody_opt.py:126(nbody)
+  2000000    5.798    0.000    5.862    0.000 nbody_opt.py:47(advance)
+  2000200    0.063    0.000    0.063    0.000 {built-in method builtins.len}
+      200    0.000    0.000    0.000    0.000 nbody_opt.py:83(report_energy)
+      100    0.000    0.000    0.000    0.000 {built-in method builtins.print}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        1    0.000    0.000    0.000    0.000 nbody_opt.py:109(offset_momentum)
+        1    0.000    0.000    0.000    0.000 {method 'keys' of 'dict' objects}
+        1    0.000    0.000    0.000    0.000 {method 'values' of 'dict' objects}
